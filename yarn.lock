@@ -3571,6 +3571,13 @@ bonjour-service@^1.0.11:
     fast-deep-equal "^3.1.3"
     multicast-dns "^7.2.5"
 
+booking@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/booking/-/booking-0.1.0.tgz"
+  integrity sha512-3yaWovbme60OthufYZle876/qehhE01sOmziPE9E8Sz9ABJsv6WPZjh079LTdMxJTFERrx4axLs5HnQK3uI0XA==
+  dependencies:
+    moment "2.10.6"
+
 boolbase@^1.0.0, boolbase@~1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/boolbase/-/boolbase-1.0.0.tgz"
@@ -7582,6 +7589,11 @@ mkdirp@0.3.x:
   version "0.3.5"
   resolved "https://registry.npmjs.org/mkdirp/-/mkdirp-0.3.5.tgz"
   integrity sha512-8OCq0De/h9ZxseqzCH8Kw/Filf5pF/vMI6+BH7Lu0jXz2pqYCjTAQRolSxRIi+Ax+oCCjlxoJMP0YQ4XlrQNHg==
+
+moment@2.10.6:
+  version "2.10.6"
+  resolved "https://registry.npmjs.org/moment/-/moment-2.10.6.tgz"
+  integrity sha512-Tqzz/uADMAPuqWA7iE0eMCJHhDqGuRpiwUSokCT3144wCsjeTHwzbgJY62GAvt3ax8bI8tDugD2oaMQXvJ9tBA==
 
 ms@^2.1.1, ms@2.1.2:
   version "2.1.2"
