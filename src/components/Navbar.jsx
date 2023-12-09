@@ -10,8 +10,8 @@ class Navbar extends React.Component {
     const { currentUser } = this.context;
 
     return (
-      <div class="navbar bg-dark blur p-1">
-        <a class="navbar-brand text-white ml-5 " href="/">
+      <div className="navbar bg-dark blur p-1">
+        <a className="navbar-brand text-white ml-5 " href="/">
           <b className="ml-5">
             👨‍💻 Welcome <b>{currentUser.displayName}</b>
           </b>
@@ -19,7 +19,7 @@ class Navbar extends React.Component {
         <div className="float-end">
           <a
             type="button"
-            class="btn btn-outline-success m-1"
+            className="btn btn-outline-success m-1"
             data-bs-toggle="modal"
             data-bs-target="#exampleModal"
           >
