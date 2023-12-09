@@ -59,7 +59,7 @@ const Login = () => {
             {err && <span>Incorrect email or password!</span>}
           </form>
           <div className="register">
-            <p> <a onClick={handleForgotPassword}>Forgot Password</a></p>
+            <p> <a href="#forgot-password" onClick={handleForgotPassword}>Forgot Password</a></p>
           </div>
 
         </div>

@@ -1,23 +1,18 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import firebase from "firebase/compat/app";
-import "firebase/compat/storage";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAm51nnd_-xog31y0pmh4jXtqB23wA97GA",
-  authDomain: "insta2-1b6a8.firebaseapp.com",
-  projectId: "insta2-1b6a8",
-  storageBucket: "insta2-1b6a8.appspot.com",
-  messagingSenderId: "1061810403044",
-  appId: "1:1061810403044:web:98776ba4b3c8d4e0981ef1",
-  measurementId: "G-M4972ZB2BG"
+	apiKey: "AIzaSyBjB3cm_Oz6QttY8qJb0VJBnrk7wFXTl7s",
+	authDomain: "dropbox-clone-7b0f0.firebaseapp.com",
+	projectId: "dropbox-clone-7b0f0",
+	storageBucket: "dropbox-clone-7b0f0.appspot.com",
+	messagingSenderId: "141023689174",
+	appId: "1:141023689174:web:96d81ddaf0d5814f478c77",
+	measurementId: "G-6FSPM2ENPC"
 };
 
-firebase.initializeApp(firebaseConfig);
-
-// Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth();
-export const storage = firebase.storage();
-export const db = getFirestore()
+export const db = getFirestore(app);
+export const auth = getAuth(app);
