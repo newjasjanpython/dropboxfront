@@ -1,314 +1,180 @@
-import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { getAuth } from "firebase/auth";
-import {
-  getStorage,
-  ref,
-  listAll,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  getMetadata,
-} from "firebase/storage";
+import { Component } from "react";
 import Navbar from "../components/Navbar";
+import { getStorage, ref, getDownloadURL, uploadBytes, listAll } from "firebase/storage";
 
-const Home = () => {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const path = queryParams.get("path");
 
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [userFiles, setUserFiles] = useState([]);
-  const [newFolderName, setNewFolderName] = useState('');
+export default class Home extends Component {
+	constructor(props) {
+		super(props);
 
-  useEffect(() => {
-    retrieveUserFiles(path);
-  }, [path]);
+		this.state = {
+			files: [],
+			uploadFile: null,
+			newFolderName: null,
+		};
 
-  const handleFileChange = (event) => {
-    setSelectedFile(event.target.files[0]);
-  };
 
-  const handleUpload = () => {
-    if (selectedFile) {
-      const storage = getStorage();
-      const storageRef = ref(storage, `Files/${path || ""}` + selectedFile.name);
-      const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+		this.handleUploadFile = this.handleUploadFile.bind(this);
+		this.handleNewFolder = this.handleNewFolder.bind(this);
+	}
 
-      uploadTask.on(
-        "state_changed",
-        null,
-        (error) => {
-          console.error("Error uploading file:", error);
-        },
-        () => {
-          retrieveUserFiles(path);
-        }
-      );
-    } else {
-      console.warn("No file selected!");
-    }
-  };
+	getPath() {
+		const searchParams = new URLSearchParams(window.location.search);
+		let path = searchParams.get('path');
+		if (path) {
+			return 'Files/' + path + '/';
+		} else {
+			return 'Files/';
+		}
+	}
 
-  const retrieveUserFiles = (currentPath) => {
-    const user = getAuth().currentUser;
-    if (user) {
-      const storage = getStorage();
-      const filesRef = ref(storage, `Files/${currentPath || ""}`);
+	handleFileChange = (e) => {
+		if (e.target.files[0]) {
+			this.setState({ uploadFile: e.target.files[0] });
+		}
+	};
 
-      listAll(filesRef)
-        .then((res) => {
-          const promises = res.items.map((item) =>
-            getDownloadURL(item).then((url) => ({
-              name: item.name,
-              url: url,
-              isFolder: false,
-            }))
-          );
+	handleNewFolderNameChange = (e) => {
+		if (e.target.value) {
+			this.setState({ newFolderName: e.target.value });
+		} else {
+			this.setState({ newFolderName: null });
+		}
+	}
 
-          const folderPromises = res.prefixes.map((prefix) => ({
-            name: prefix.name.split("/").pop(),
-            isFolder: true,
-          }));
+	async handleNewFolder() {
+		if (this.state.newFolderName) {
+			const storage = getStorage();
+			const rootRef = ref(storage);
+			const path = this.getPath() + this.state.newFolderName + '/.newfolderinit';
+			const storageRef = path ? ref(rootRef, path) : rootRef;
 
-          return Promise.all([...promises, ...folderPromises]);
-        })
-        .then((fileData) => {
-          setUserFiles(fileData);
-        })
-        .catch((error) => {
-          console.error("Error retrieving user files:", error);
-        });
-    }
-  };
+			try {
+				await uploadBytes(storageRef, new Uint8Array());
+			} catch (error) {
+				console.error(error);
+			}
 
-  const openFile = (url) => {
-    window.open(url, "_blank");
-  };
+			this.setState({ newFolderName: null });
+			await this.handleLoadFiles();
+		}
+	}
 
-  const deleteFile = (fileName) => {
-    const storage = getStorage();
-    const fileRef = ref(storage, "Files/" + fileName);
+	async handleUploadFile() {
+		if (this.state.uploadFile) {
+			const storage = getStorage();
+			const rootRef = ref(storage);
+			const path = this.getPath() + this.state.uploadFile.name;
+			const storageRef = path ? ref(rootRef, path) : rootRef;
 
-    getMetadata(fileRef)
-      .then(() => {
-        deleteObject(fileRef)
-          .then(() => {
-            retrieveUserFiles(path);
-          })
-          .catch((error) => {
-            console.error("Error deleting file:", error);
-          });
-      })
-      .catch((error) => {
-        console.error("Error getting metadata:", error);
-      });
-  };
+			try {
+				await uploadBytes(storageRef, this.state.uploadFile);
+			} catch (error) {
+				console.error(error);
+			}
 
-  const openFolder = (folderName) => {
-    const newPath = path ? `${path}/${folderName}` : folderName;
-    retrieveUserFiles(newPath);
-  };
+			await this.handleLoadFiles();
+		}
+	}
 
-  const handleFolderNameChange = (event) => {
-    setNewFolderName(event.target.value);
-  };
+	async handleLoadFiles() {
+		const storage = getStorage();
+		const storageRef = ref(storage, this.getPath());
 
-  const createFolder = () => {
-    const storage = getStorage();
-    const folderName = newFolderName.trim();
+		try {
+			const items = await listAll(storageRef);
 
-    if (folderName) {
-      const folderRef = ref(storage, `Files/${folderName}/`);
-      
-      // eslint-disable-next-line
-      uploadBytesResumable(folderRef, new Uint8Array())
-        .then(() => {
-          retrieveUserFiles(path);
-          setNewFolderName('');
-        })
-        .catch((error) => {
-          console.error('Error creating folder:', error);
-        });
-    } else {
-      console.warn('Please enter a valid folder name!');
-    }
-  };
+			const files = [];
 
-  return (
-    <div className="body">
-      <Navbar />
+			for (const item of items.items) {
+				const downloadURL = await getDownloadURL(item);
+				files.push({
+					name: item.name,
+					downloadURL,
+					isDirectory: false,
+				});
+			}
 
-      <div className="">
-        <h1 className="text-center text-white mt-4">
-          <b>Your Files and Folders</b>
-        </h1>
+			for (const item of items.prefixes) {
+				files.push({
+					name: item.name,
+					isDirectory: true,
+				});
+			}
 
-        <div className="d-flex justify-content-center">
-          {userFiles.length === 0 ? (
-            <h1 className="text-center text-dark mt-4">No File or Folder</h1>
-          ) : (
-            userFiles.map((file, index) => (
-              <div className="m-4" key={index}>
-                <div className="card" style={{ width: "130px" }}>
-                  {file.isFolder ? (
-                    <div>
-                      <img
-                        width={100}
-                        height={50}
-                        style={{ width: "128px", height: "130px" }}
-                        src="https://iconarchive.com/download/i107046/google/noto-emoji-animals-nature/22215-open-file-folder.ico"
-                        alt=""
-                        onClick={() => openFolder(file.name)}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <p
-                        style={{
-                          width: "110px",
-                          overflow: "hidden",
-                          whiteSpace: "nowrap",
-                          textOverflow: "ellipsis",
-                          textAlign: "center",
-                        }}
-                        onClick={() => openFolder(file.name)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {file.name}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <img
-                        onClick={() => openFile(file.url)}
-                        width={100}
-                        height={50}
-                        style={{ width: "128px", height: "130px" }}
-                        src="https://pixy.org/src/452/thumbs350/4522322.jpg"
-                        alt=""
-                      />
-                      <p
-                        style={{
-                          width: "110px",
-                          overflow: "hidden",
-                          whiteSpace: "nowrap",
-                          textOverflow: "ellipsis",
-                          textAlign: "center",
-                        }}
-                      >
-                        {file.name}
-                      </p>
-                      <button
-                        className="btn btn-danger"
-                        onClick={() => deleteFile(file.name)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+			this.setState({ files });
+		} catch (error) {
+			console.error("Error listing files: ", error);
+		}
+	}
 
-      <div
-        className="modal fade"
-        id="exampleModal"
-        tabIndex="-1"
-        aria-labelledby="exampleModalLabel"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h1 className="modal-title fs-5" id="exampleModalLabel">
-                File Upload
-              </h1>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="modal-body">
-              <div className="">
-                <input type="file" onChange={handleFileChange} />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                data-bs-dismiss="modal"
-              >
-                Close
-              </button>
-              {/* eslint-disable-next-line */}
-              <button
-                className="btn btn-success"
-                onClick={handleUpload}
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              >
-                Upload
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div
-        className="modal fade"
-        id="newFolder"
-        tabIndex="-1"
-        aria-labelledby="newFolderLabel"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h1 className="modal-title fs-5" id="newFolderLabel">
-                Create folder
-              </h1>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <div className="modal-body">
-              <div className="">
-                <input
-                  type="text"
-                  id="new_folder_name"
-                  className="form-control w-100"
-                  placeholder="Folder name"
-                  value={newFolderName}
-                  onChange={handleFolderNameChange}
-                />
-                {/* eslint-disable-next-line */}
-                <button className="btn btn-primary mt-2" onClick={createFolder}>
-                  Create folder
-                </button>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                data-bs-dismiss="modal"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+	componentDidMount() {
+		this.handleLoadFiles();
+	}
 
-export default Home;
+	render() {
+		return (
+			<>
+				<Navbar />
+				<div className="container">
+					<h2>Files in Firebase Storage:</h2>
+					<div className="list-group">
+						{this.state.files.length > 0 ? this.state.files.map((file, index) => (
+							<a key={index} href={file.isDirectory ? '?path=/' + file.name : file.downloadURL} target={ file.isDirectory ? '_self' : '_blank' } rel={ file.isDirectory ? '' : "noopener noreferrer" } className={`list-group-item list-group-item-action d-flex`} style={{ gap: 16 }}>
+								{ file.isDirectory ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-folder" viewBox="0 0 16 16">
+  <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.99 1.99 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4H2.19zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139C1.72 3.042 1.95 3 2.19 3h5.396l-.707-.707z"/>
+</svg> : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-card-image" viewBox="0 0 16 16">
+  <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
+  <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2zm13 1a.5.5 0 0 1 .5.5v6l-3.775-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12v.54A.505.505 0 0 1 1 12.5v-9a.5.5 0 0 1 .5-.5z"/>
+</svg> }
+								<span>{file.name}</span>
+							</a>
+						)) : <p key={0} className="list-group-item list-group-item-action">Nothing found here</p>}
+
+					</div>
+				</div>
+
+				<div className="modal fade" id="exampleModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+					<div className="modal-dialog">
+						<div className="modal-content">
+							<div className="modal-header">
+								<h5 className="modal-title" id="exampleModalLabel">File Upload</h5>
+								<button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+							</div>
+							<div className="modal-body">
+								<input type="file" className="form-control" onChange={this.handleFileChange} />
+							</div>
+							<div className="modal-footer">
+								<div className="d-flex" style={{ 'gap': 16 }}>
+									<button type="button" className="btn btn-success" data-bs-dismiss="modal" onClick={this.handleUploadFile} disabled={this.state.uploadFile == null}>Upload</button>
+									<button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div className="modal fade" id="newFolder" tabIndex="-1" aria-labelledby="newFolderLabel" aria-hidden="true">
+					<div className="modal-dialog">
+						<div className="modal-content">
+							<div className="modal-header">
+								<h5 className="modal-title" id="newFolderLabel">Create folder</h5>
+								<button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+							</div>
+							<div className="modal-body">
+								<input type="text" placeholder="New folder name" className="form-control" onChange={this.handleNewFolderNameChange} value={ this.state.newFolderName || '' }/>
+							</div>
+							<div className="modal-footer">
+								<div className="d-flex" style={{ 'gap': 16 }}>
+									<button type="button" className="btn btn-success" data-bs-dismiss="modal" onClick={this.handleNewFolder} disabled={this.state.newFolderName == null}>Create folder</button>
+									<button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</>
+		);
+	}
+}
